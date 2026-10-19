@@ -1,5 +1,26 @@
 # Code-to-Docs - AI Documentation Assistant
 
+> **Fabric fork.** This fork adds three opt-in options in `.code-to-docs/config.json`:
+>
+> ```json
+> {
+>   "language-pairs": [["en", "ar"]],
+>   "allow-new-pages": true,
+>   "max-new-pages": 1,
+>   "review-date-field": "last_reviewed",
+>   "review-date-timezone": "Asia/Riyadh"
+> }
+> ```
+>
+> - **language-pairs**: when a page in one language is selected, its counterpart (same path
+>   under the other language folder) is selected too, and is generated from the updated source page.
+> - **allow-new-pages**: the model may propose a new page when a change adds a capability
+>   that no existing page should hold. It appears in the review list and is created only if kept checked.
+> - **review-date-field**: the front-matter review date of each changed page is set by code to today.
+>
+> Without these keys the action behaves exactly as upstream. Code: `src/fabric_ext.py`.
+
+
 [![GitHub Action](https://img.shields.io/badge/GitHub-Action-blue.svg)](https://github.com/marketplace/actions/upstream-docs-enhancer)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 

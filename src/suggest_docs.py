@@ -41,6 +41,13 @@ from discovery import (
     get_file_content_or_summaries,
 )
 from doc_index import build_all_indexes, checkout_docs_from_base_branch
+from fabric_ext import (
+    extend_selection,
+    fabric_enabled,
+    generate_all,
+    stamp_review_dates,
+    write_page,
+)
 from generation import (
     ask_ai_for_updated_content,
     generate_updates_parallel,
@@ -514,6 +521,12 @@ def main():
             print("Asking AI for relevant files...")
             relevant_files = ask_ai_for_relevant_files(diff, file_previews)
 
+    # Fabric: new-page proposals and language parity (opt-in via .code-to-docs/config.json).
+    # Skipped when the reviewer already chose the files in a previous [review-docs].
+    use_fabric = fabric_enabled()
+    if use_fabric and not (previous_review and previous_review["review_found"]):
+        relevant_files = extend_selection(diff, relevant_files or [], style_guidelines)
+
     if not relevant_files:
         print("AI did not suggest any files.")
         if review_mode or update_mode or feature_mode:
@@ -532,9 +545,8 @@ def main():
     files_with_content = []
     modified_files = []
 
-    if args.parallel_updates and len(relevant_files) > 1:
-        print(f"Generating updates in parallel (max {args.max_workers} workers)...")
-        files_with_content = generate_updates_parallel(
+    if use_fabric:
+        files_with_content = generate_all(
             diff,
             relevant_files,
             max_workers=args.max_workers,
@@ -543,43 +555,63 @@ def main():
             style_guidelines=style_guidelines,
             pr_description=pr_description,
         )
-
+        files_with_content = stamp_review_dates(files_with_content)
         for file_path, _current, updated in files_with_content:
             if update_mode and not args.dry_run:
                 print(f"Updating {file_path}...")
-                if overwrite_file(file_path, updated):
+                if write_page(file_path, updated):
                     modified_files.append(file_path)
             elif args.dry_run:
                 print(f"[Dry Run] Would update {file_path}")
     else:
-        for file_path in relevant_files:
-            current = load_full_content(file_path)
-            if not current:
-                continue
-
-            print(f"Checking if {file_path} needs an update...")
-            updated = ask_ai_for_updated_content(
+        if args.parallel_updates and len(relevant_files) > 1:
+            print(f"Generating updates in parallel (max {args.max_workers} workers)...")
+            files_with_content = generate_updates_parallel(
                 diff,
-                file_path,
-                current,
+                relevant_files,
+                max_workers=args.max_workers,
                 user_instructions=user_instructions,
                 file_instructions=file_instructions,
                 style_guidelines=style_guidelines,
                 pr_description=pr_description,
             )
 
-            if updated.strip() == "NO_UPDATE_NEEDED":
-                print(f"No update needed for {file_path}")
-                continue
+            for file_path, _current, updated in files_with_content:
+                if update_mode and not args.dry_run:
+                    print(f"Updating {file_path}...")
+                    if overwrite_file(file_path, updated):
+                        modified_files.append(file_path)
+                elif args.dry_run:
+                    print(f"[Dry Run] Would update {file_path}")
+        else:
+            for file_path in relevant_files:
+                current = load_full_content(file_path)
+                if not current:
+                    continue
 
-            files_with_content.append((file_path, current, updated))
+                print(f"Checking if {file_path} needs an update...")
+                updated = ask_ai_for_updated_content(
+                    diff,
+                    file_path,
+                    current,
+                    user_instructions=user_instructions,
+                    file_instructions=file_instructions,
+                    style_guidelines=style_guidelines,
+                    pr_description=pr_description,
+                )
 
-            if update_mode and not args.dry_run:
-                print(f"Updating {file_path}...")
-                if overwrite_file(file_path, updated):
-                    modified_files.append(file_path)
-            elif args.dry_run:
-                print(f"[Dry Run] Would update {file_path}")
+                if updated.strip() == "NO_UPDATE_NEEDED":
+                    print(f"No update needed for {file_path}")
+                    continue
+
+                files_with_content.append((file_path, current, updated))
+
+                if update_mode and not args.dry_run:
+                    print(f"Updating {file_path}...")
+                    if overwrite_file(file_path, updated):
+                        modified_files.append(file_path)
+                elif args.dry_run:
+                    print(f"[Dry Run] Would update {file_path}")
 
     # Handle different modes
     if files_with_content:
