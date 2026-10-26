@@ -72,6 +72,18 @@ class TestRequest:
         assert req["notes"] == "cover create and list only"
         assert req["overwrite"] is False
 
+    def test_parses_other_layouts(self):
+        variants = [
+            "[generate-docs] page: en/how-to/x.md code: app/main.py, app/models.py notes: short",
+            "[generate-docs]\r\npage: en/how-to/x.md\r\ncode: app/main.py, app/models.py\r\n",
+            "[generate-docs]\n```\npage: `en/how-to/x.md`\ncode: app/main.py, app/models.py\n```",
+            "[generate-docs]\n**page:** en/how-to/x.md\n**code:** app/main.py, app/models.py",
+        ]
+        for body in variants:
+            req = parse_request(body)
+            assert req["page"] == "en/how-to/x.md", body
+            assert req["code"] == ["app/main.py", "app/models.py"], body
+
     def test_requires_page_and_code(self):
         with pytest.raises(GenerateError):
             parse_request("[generate-docs]\ncode: a.py")

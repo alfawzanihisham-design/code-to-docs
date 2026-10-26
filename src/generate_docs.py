@@ -83,11 +83,16 @@ def is_generate_command(comment_body):
 
 def parse_request(comment_body):
     """Parse the comment into a request dict. Raises GenerateError."""
+    # Accept one field per line or all on one line, with or without Markdown
+    # formatting (code fences, backticks, bold) and with Windows line endings.
+    text = (comment_body or "").replace("\r", "")
+    text = re.sub(r"```[a-z]*", " ", text).replace("**", "").replace("__", "")
+    keys = r"(page|code|template|notes|overwrite)"
     fields = {}
-    for line in (comment_body or "").splitlines():
-        m = re.match(r"^\s*(page|code|template|notes|overwrite)\s*:\s*(.*?)\s*$", line, re.I)
-        if m:
-            fields[m.group(1).lower()] = m.group(2)
+    for m in re.finditer(
+        rf"(?<![\w/.-]){keys}\s*:\s*(.*?)\s*(?=(?<![\w/.-]){keys}\s*:|\n|$)", text, re.I
+    ):
+        fields.setdefault(m.group(1).lower(), m.group(2))
 
     page = fields.get("page", "").strip().strip("`")
     if not page:
