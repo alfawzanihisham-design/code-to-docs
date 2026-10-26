@@ -1,6 +1,6 @@
 # Code-to-Docs - AI Documentation Assistant
 
-> **Fabric fork.** This fork adds three opt-in options in `.code-to-docs/config.json`:
+> **Fabric fork.** This fork adds opt-in options in `.code-to-docs/config.json`:
 >
 > ```json
 > {
@@ -18,7 +18,27 @@
 >   that no existing page should hold. It appears in the review list and is created only if kept checked.
 > - **review-date-field**: the front-matter review date of each changed page is set by code to today.
 >
+> - **parity-scope** (optional, e.g. `["user/"]`): a missing counterpart is created only for pages
+>   under these folders, so developer or internal pages can stay English-only.
+>
 > Without these keys the action behaves exactly as upstream. Code: `src/fabric_ext.py`.
+>
+> **`[generate-docs]`** writes the first draft of a page from chosen code files, for code that
+> already exists (the other commands only see the pull request diff):
+>
+> ```
+> [generate-docs]
+> page: en/how-to/manage-collections.md
+> code: app/main.py, app/models.py
+> template: how-to          (optional; defaults to the page's folder)
+> notes: cover create and list only   (optional)
+> overwrite: yes            (optional; needed to replace an existing page)
+> ```
+>
+> Templates are mapped with `"page-templates": {"how-to": ".code-to-docs/templates/how-to.md"}`.
+> The draft and its counterpart are committed to the pull request, and the comment lists what to
+> verify (placeholders, claims found only in docstrings). Key or secret files are never read, and
+> any model or git failure is reported in the comment and fails the job. Code: `src/generate_docs.py`.
 
 
 [![GitHub Action](https://img.shields.io/badge/GitHub-Action-blue.svg)](https://github.com/marketplace/actions/upstream-docs-enhancer)

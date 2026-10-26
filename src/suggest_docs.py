@@ -1,7 +1,7 @@
 """
 Main orchestrator for code-to-docs GitHub Action.
 
-Detects the command mode ([review-docs], [update-docs], [review-feature]),
+Detects the command mode ([review-docs], [update-docs], [review-feature], [generate-docs]),
 coordinates file discovery, content generation, and PR/comment posting.
 
 All business logic lives in dedicated modules:
@@ -48,6 +48,7 @@ from fabric_ext import (
     stamp_review_dates,
     write_page,
 )
+from generate_docs import is_generate_command, run_generate
 from generation import (
     ask_ai_for_updated_content,
     generate_updates_parallel,
@@ -267,6 +268,17 @@ def main():
 
     # Detect which command was used
     comment_body = os.environ.get("COMMENT_BODY", "")
+
+    # === [generate-docs] — first draft of a page from chosen code files (Fabric) ===
+    if is_generate_command(comment_body):
+        run_generate(
+            comment_body,
+            style_guidelines,
+            setup_docs_environment,
+            _resolve_pr_push_target,
+            dry_run=args.dry_run,
+        )
+        return
 
     # === [review-feature] — parse Jira key early, run feature analysis later ===
     feature_mode = "[review-feature]" in comment_body.lower()

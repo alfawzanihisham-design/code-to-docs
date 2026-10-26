@@ -46,7 +46,7 @@ inputs:
     required: false
     default: 'main'
   comment-body:
-    description: 'The comment body text (used to detect [review-docs], [update-docs], or [review-feature] commands)'
+    description: 'The comment body text (used to detect [review-docs], [update-docs], [review-feature] or [generate-docs] commands)'
     required: false
     default: ''
   jira-url:

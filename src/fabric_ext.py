@@ -199,14 +199,30 @@ Documentation style rules:
     return proposals[:max_new]
 
 
-def add_language_counterparts(files, pairs):
-    """Add each page's counterpart when it exists, or when the source page is new."""
+def in_parity_scope(path, scope):
+    """True when a page falls under `parity-scope` (folders below the language), or no scope is set.
+
+    Example: with "parity-scope": ["user/"], en/user/x.md is in scope and en/developer/x.md is not.
+    """
+    if not scope:
+        return True
+    parts = Path(path).parts
+    rest = "/".join(parts[1:]) if len(parts) > 1 else path
+    return any(rest.startswith(s.strip("/") + "/") for s in scope if isinstance(s, str) and s.strip("/"))
+
+
+def add_language_counterparts(files, pairs, scope=None):
+    """Add each page's counterpart when it exists, or when the source page is new.
+
+    A missing counterpart is only created for pages inside `scope` (see in_parity_scope);
+    existing counterparts are always kept in step.
+    """
     result = list(dict.fromkeys(files))
     for path in list(result):
         counterpart, _ = counterpart_of(path, pairs)
         if not counterpart or counterpart in result:
             continue
-        if Path(counterpart).exists() or not Path(path).exists():
+        if Path(counterpart).exists() or (not Path(path).exists() and in_parity_scope(path, scope)):
             print(f"Language parity: adding {counterpart} (counterpart of {path})")
             result.append(counterpart)
     return result
@@ -219,7 +235,7 @@ def extend_selection(diff, files, style_guidelines=""):
     files += [p for p in propose_new_pages(diff, files, style_guidelines, cfg) if p not in files]
     pairs = language_pairs(cfg)
     if pairs and cfg.get("enforce-language-parity", True):
-        files = add_language_counterparts(files, pairs)
+        files = add_language_counterparts(files, pairs, cfg.get("parity-scope"))
     return files
 
 
