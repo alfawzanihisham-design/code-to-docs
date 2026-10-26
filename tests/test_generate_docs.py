@@ -12,6 +12,7 @@ import generate_docs
 from generate_docs import (
     GenerateError,
     build_comment,
+    copy_front_matter,
     doc_type_of,
     is_generate_command,
     load_template,
@@ -177,6 +178,19 @@ class TestComment:
         assert "first draft written from code" in body
         assert "- [ ] Owner is a placeholder" in body
         assert "`en/how-to/x.md`" in body
+
+    def test_fence_survives_code_blocks_in_page(self):
+        page = "# X\n\n```bash\ncurl x\n```\n\n## Verify success\n"
+        body = build_comment([("en/how-to/x.md", page)], [], "", ["a.py"])
+        assert "````markdown" in body and "\n````\n" in body
+
+    def test_counterpart_front_matter_comes_from_source(self):
+        src = "---\nowner: <owning-team>\nlanguage: en\nlast_reviewed: 2026-10-26\n---\n\n# Title\n"
+        tgt = "---\nowner: team-knowledge-search\nlanguage: ar\n---\n\n# العنوان\n"
+        out = copy_front_matter(src, tgt, "ar")
+        assert out.startswith("---\nowner: <owning-team>\nlanguage: ar\nlast_reviewed: 2026-10-26\n---")
+        assert out.endswith("# العنوان\n")
+        assert copy_front_matter("# no front matter\n", tgt, "ar") == tgt
 
     def test_error_comment_has_usage(self):
         body = build_comment([], [], "", [], error="Missing `page:` line.")

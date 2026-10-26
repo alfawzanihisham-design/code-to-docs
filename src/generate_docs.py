@@ -258,6 +258,34 @@ def generate_page(page, code_files, template_path, template, style, notes):
 # =============================================================================
 
 
+def _longest_backtick_run(text):
+    runs = re.findall(r"`+", text or "")
+    return max((len(r) for r in runs), default=0)
+
+
+def copy_front_matter(source, target, language):
+    """Give the counterpart the source page's front matter, with only `language` changed.
+
+    Front matter is metadata, not prose: it must not be translated or guessed. Without
+    this the model copied an owner from a neighbouring page instead of the placeholder.
+    """
+    def split(text):
+        if not text.startswith("---"):
+            return None, text
+        end = text.find("\n---", 3)
+        if end == -1:
+            return None, text
+        return text[: end + 4], text[end + 4 :]
+
+    src_head, _ = split(source)
+    _, tgt_body = split(target)
+    if src_head is None:
+        return target
+    head = re.sub(r"^(language\s*:\s*).*$", lambda m: m.group(1) + language, src_head,
+                  count=1, flags=re.MULTILINE)
+    return head + tgt_body
+
+
 def build_comment(written, verify, template_path, code_paths, error=None):
     lines = ["## 📝 Generated documentation draft", ""]
     if error:
@@ -277,8 +305,9 @@ def build_comment(written, verify, template_path, code_paths, error=None):
         lines += ["", "### ⚠️ Check before merging", ""]
         lines += [f"- [ ] {v}" for v in verify]
     for path, content in written:
-        lines += ["", f"<details><summary><b>{path}</b></summary>", "", "```markdown"]
-        lines += [content.rstrip("\n"), "```", "", "</details>"]
+        fence = "`" * max(4, _longest_backtick_run(content) + 1)
+        lines += ["", f"<details><summary><b>{path}</b></summary>", "", f"{fence}markdown"]
+        lines += [content.rstrip("\n"), fence, "", "</details>"]
     return "\n".join(lines)
 
 
@@ -353,6 +382,7 @@ def run_generate(comment_body, style_guidelines, setup_docs_environment, resolve
             )
             if not translated:
                 raise GenerateError(f"Could not generate the counterpart `{counterpart}`.")
+            translated = copy_front_matter(content, translated, counterpart.split("/", 1)[0])
             results.append((counterpart, "", translated))
 
         results = stamp_review_dates(results, cfg=cfg)
